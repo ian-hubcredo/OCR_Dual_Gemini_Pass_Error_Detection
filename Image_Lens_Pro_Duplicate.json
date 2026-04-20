@@ -1,0 +1,578 @@
+{
+  "name": "Image Lens Pro - Duplicate",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "httpMethod": [
+          "POST"
+        ],
+        "path": "b17c4454-a32e-4dc9-8ee9-4da7162c4703",
+        "options": {
+          "allowedOrigins": "https://app-7dzvb2e20qgx-vitesandbox.sandbox.medo.dev",
+          "binaryPropertyName": "data0",
+          "responseData": ""
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2208,
+        -64
+      ],
+      "id": "3a2b57eb-7bb1-4c59-bede-956b730e3ac3",
+      "name": "Webhook1",
+      "webhookId": "<REDACTED_WEBHOOK_ID>"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -656,
+        -48
+      ],
+      "id": "e4d25f9d-108f-4158-aad5-cc4101e96d86",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=You are a **balanced Packaging OCR Error Detector**. Catch legitimate errors—never style preferences. The client loses $1,000 per missed error, so be thorough, but false positives damage trust. Target: catch 95% of real errors with <5% false positives.\n\nEach images has a minimum of 10 erros, catch all of them. Do deep analysis of the image to find the errors\n\nPRIORITY ERRORS EXAMPLES -- SOMETHING SIMILAR WHICH ALWAYS OCCURS (MUST catch these KINDS):\n- \"SOLIDER\" → \"SOLDIER\" (Spelling)\n- \"SNOW MOBILE\" → \"SNOWMOBILE\" (Compound Word)\n- \"CONTOLLED\" → \"CONTROLLED\" (Spelling)\n- \"DESINER\" → \"DESIGNER\" (OCR Confusion)\n\nAPPROVED ERROR TYPES (5 categories only):\n1. **Spelling**: Clear misspellings. CORRECT: \"SOLIDER\", \"CONTOLLED\". IGNORE: \"MATT\" vs \"MATTE\" (style).\n2. **Compound Words**: Product names incorrectly split. CORRECT: \"SNOW MOBILE\"→\"SNOWMOBILE\". IGNORE: \"PLAY SET\" vs \"PLAYSET\" unless it's a product name.\n3. **Missing Characters**: Visibly truncated words. CORRECT: \"PACKAGIN\"→\"PACKAGING\". IGNORE: Fold-line fragments.\n4. **OCR Confusion**: Obvious character swaps. CORRECT: \"DESINER\"→\"DESIGNER\", \"1/15/2024\"→\"I/15/2024\". IGNORE: Ambiguous shapes.\n5. **Grammar**: Clear subject-verb agreement errors in complete phrases. CORRECT: \"Soldier include\"→\"Soldier includes\". IGNORE: Fragments, list items.\n\nSTYLE CHOICES (DO NOT FLAG as errors):\n- Print terms: MATT/MATTE, VARNISH, SPOT UV, PMS codes\n- Date formats: 01/8/2023 vs 01/08/2023\n- Spacing: U.S.ARMY vs U.S. ARMY\n- Consistency: \"PLAY SET\" vs \"PLAYSET\" across panels\n- Trademarks: \"BE ALL YOU CAN BE\" without ® (unless legally mandated)\n- Punctuation: \"SPECS:\" vs \"SPECS\"\n\nVERIFICATION RULES:\n- **Confidence Rating**: \n  - \"high\" (>90%): Obvious error, certain correction. Always output.\n  - \"medium\" (70-90%): Likely error, some ambiguity. Always output.\n  - \"low\" (<70%): Uncertain. Skip and count in summary.\n- **When in Doubt**: Flag as \"medium\"—never skip potential errors. Let the client filter.\n- **Minimal Fix**: Change ONLY the error, preserve everything else.\n- **Zero Invention**: Never add/remove words beyond the clear correction.\n\nOUTPUT FORMAT (JSON ONLY):\n{\n  \"errors_detected\": [\n    {\n      \"error_id\": number,\n      \"found_text\": \"exact text from image\",\n      \"error_type\": \"Spelling|Compound_Word|Missing_Character|OCR_Confusion|Grammar\",\n      \"correction\": \"exact minimal fix\",\n      \"issue_description\": \"specific problem (e.g., 'missing R in CONTROLLED')\",\n      \"coordinates\": [ymin, xmin, ymax, xmax],\n      \"confidence\": \"high|medium\",\n      \"panel_zone\": \"string or null\"\n    }\n  ],\n  \"summary\": {\n    \"total_errors\": number,\n    \"high_confidence_errors\": number,\n    \"medium_confidence_errors\": number,\n    \"by_type\": {\"Spelling\":0,\"Compound_Word\":0,\"Missing_Character\":0,\"OCR_Confusion\":0,\"Grammar\":0},\n    \"overall_confidence\": \"high|medium|low\",\n    \"notes\": \"Skipped X low-confidence fragments. Y medium-confidence flags need review.\"\n  },\n  \"image_metadata\": {\n    \"width\": number,\n    \"height\": number\n  }\n}\n\nMANDATES:\n- Output BOTH high and medium confidence errors\n- Empty array only if ZERO potential errors found\n- No commentary outside JSON\n- Every key must exist (use null for missing values)\n- When uncertain: **FLAG MEDIUM, don't skip**",
+        "inputType": "binary",
+        "binaryPropertyName": "data00",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1872,
+        -16
+      ],
+      "id": "a7628579-d086-4ca8-9d22-f36fc620528b",
+      "name": "Zonal OCR (The Technician)1",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "alwaysOutputData": true,
+      "waitBetweenTries": 500,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Gemini Error\n"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========== n8n Code Node: Clean Gemini Output for Grok Refinement ==========\n\n// Step 1: Extract raw text from Gemini response\nconst item = $input.first().json;  // Single item from Gemini\nconst rawText = item.content.parts[0].text;\n\n// Step 2: Unwrap ```json fences\nfunction unwrapJSON(text) {\n  const match = text.match(/```json\\s*([\\s\\S]*?)```/i);\n  return match ? match[1].trim() : text.trim();\n}\n\nconst cleanText = unwrapJSON(rawText);\n\n// Step 3: Safe parse\nfunction safeParse(str) {\n  try {\n    return JSON.parse(str);\n  } catch (e) {\n    console.error(\"Parse error:\", e.message);\n    return null;\n  }\n}\n\nconst parsed = safeParse(cleanText);\nif (!parsed) {\n  return [{ json: { error: \"Failed to parse Gemini output\", refined_errors: [] } }];\n}\n\n// Step 4: Extract key sections (readable for Grok)\nconst panel_map = parsed.panel_map || [];\nconst extracted_text = parsed.extracted_text || [];\nconst gemini_errors = parsed.errors_and_corrections || [];\nconst summary = parsed.summary || {};\nconst image_dimensions = parsed.image_dimensions || { width: 0, height: 0 };\nconst total_panels = parsed.total_panels_detected || 0;\n\n// Step 5: Prepare \"readable\" data for Grok (stringified JSON + summary)\nconst grok_input = {\n  original_gemini_errors: gemini_errors,  // Array for refinement\n  extracted_text_summary: {\n    total_items: extracted_text.length,\n    panels_covered: total_panels,\n    sample_texts: extracted_text.slice(0, 10).map(t => ({ panel_zone: t.panel_zone, text: t.text }))  // Sample for context (limit to avoid tokens)\n  },\n  image_dimensions: image_dimensions\n};\n\n// Stringify for prompt insertion (Grok sees clean JSON)\nconst grok_ready_json = JSON.stringify(grok_input, null, 2);\n\n// Step 6: Output for next node (Grok call) – readable and structured\nreturn [{\n  json: {\n    // Full parsed data (for logging/debug)\n    full_parsed: parsed,\n    \n    // Readable for Grok prompt\n    grok_input_json: grok_ready_json,\n    \n    // Quick stats\n    total_gemini_errors: gemini_errors.length,\n    total_extracted_texts: extracted_text.length,\n    \n    // Error preview (array for immediate use if no Grok)\n    preliminary_errors: gemini_errors\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1680,
+        16
+      ],
+      "id": "a6f6c9a0-f841-4b7b-bf4b-53a9568060bc",
+      "name": "Code in JavaScript4",
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1520,
+        -272
+      ],
+      "id": "00845c65-8765-4404-9632-212f537c59a7",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "text": "=You are the final QC auditor reviewing U.S. Army packaging. OUtput perfect json.\nGemini has already proposed some errors. Your job is to outperform Gemini by \nfinding ONLY the additional errors that Gemini missed — without repeating any of his.\n\nGemini’s findings:\n{{ JSON.stringify($json.preliminary_errors) }}\n\nRules:\n1. You MUST re-analyze the image completely.\n2. Identify ONLY new, unique errors NOT present in Gemini’s list.\n3. Types of errors to detect:\n   - spelling\n   - grammar\n   - spacing (e.g., “U.S.ARMY” vs “U.S. ARMY”)\n   - consistency\n   - missing ® or ™\n   - formatting mistakes\n   - production-layer artifacts accidentally left on artwork\nOutput ONLY this JSON (no markdown, no quotes around keys, no commentary):\n\n{\n\n  \"errors_and_corrections\": [\n    {\n      \"error_id\": number,\n      \"found_text\": \"string\",\n      \"error_type\": \"string\",\n      \"issue_description\": \"string\",\n      \"corrected_text\": \"string\"\n      \n    }\n  ],\n  \"summary\": {\n    \"total_text_items\": number,\n    \"total_errors_found\": number,\n    \"spelling_errors\": number,\n    \"grammar_errors\": number,\n    \"consistency_errors\": number,\n    \"spacing_errors\": number,\n    \"legal_errors\": number,\n    \"trademark_errors\": number,\n    \"formatting_errors\": number,\n    \"confidence_level\": \"high | medium | low\",\n    \"notes\": \"string\"\n  },\n  \"image_dimensions\": {\n    \"width\": 0,\n    \"height\": 0\n  }\n}\n\n===============================================================\nREQUIREMENTS & RULES\n===============================================================\n\n- Output MUST be valid JSON.  \n- Do NOT return markdown, code blocks, text outside JSON, or commentary.  \n- Preserve original casing/spelling exactly in `extracted_text`.  \n- Combine and unify ALL OCR + forensic detection + panel analysis in ONE output.  \n- Use empty arrays if no errors or no text found.  \n- Every key MUST exist.  \n- Begin immediately.  \n- JSON only.\n\nObjective:\nOutperform Gemini by catching what he missed.\n",
+        "inputType": "base64",
+        "binaryPropertyName": "data00",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -1008,
+        -496
+      ],
+      "id": "a416d3ea-7ecb-455c-9059-276882ed9265",
+      "name": "Analyze image",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node – Extract Errors from Gemini/Grok/GPT Response\n// Output: One clean item per error\n\nconst item = $input.all()[0]?.json || {};\n\n// === 1. Extract raw text from ANY possible location ===\nlet raw = \"\";\nif (typeof item === \"string\") {\n  raw = item;\n} else if (item.content) {\n  raw = typeof item.content === \"string\" ? item.content : JSON.stringify(item.content);\n} else if (item.choices?.[0]?.message?.content) {\n  raw = item.choices[0].message.content;\n} else if (item.content?.parts?.[0]?.text) {\n  raw = item.content.parts[0].text;\n} else if (item.candidates?.[0]?.content?.parts?.[0]?.text) {\n  raw = item.candidates[0].content.parts[0].text;\n} else {\n  raw = JSON.stringify(item);\n}\n\n// === 2. Clean formatting - IMPROVED ===\nraw = raw\n  .replace(/```json|```/g, \"\")\n  .replace(/\\\\n/g, \"\\n\")           // Convert escaped \\n to actual newlines\n  .replace(/\\\\r/g, \"\")             // Remove \\r\n  .replace(/\\\\t/g, \" \")            // Convert tabs to spaces\n  .replace(/\\\\\\\"/g, '\"')           // Unescape quotes\n  .trim();\n\n// === 3. Try to parse as complete JSON first ===\nlet parsedData = null;\ntry {\n  parsedData = JSON.parse(raw);\n} catch (e) {\n  // If not valid JSON, continue with extraction\n}\n\n// === 4. Extract errors_and_corrections array ===\nlet errors = [];\n\nif (parsedData && parsedData.errors_and_corrections) {\n  errors = parsedData.errors_and_corrections;\n} else if (Array.isArray(parsedData)) {\n  errors = parsedData;\n} else {\n  // Fallback: Try to find the array in the string\n  // More flexible regex that handles newlines and spaces\n  const errorsArrayMatch = raw.match(/\"errors_and_corrections\"\\s*:\\s*\\[([\\s\\S]*?)(?:\\]|$)/i);\n  \n  if (!errorsArrayMatch) {\n    return [{\n      json: {\n        error: \"No errors_and_corrections found\",\n        raw_preview: raw.substring(0, 500),\n        debug_raw: raw\n      }\n    }];\n  }\n\n  let errorsBlock = errorsArrayMatch[1].trim();\n  \n  // If empty array\n  if (!errorsBlock || errorsBlock === \"\") {\n    return [{\n      json: {\n        message: \"No errors found in image\",\n        errors_count: 0\n      }\n    }];\n  }\n\n  // === 5. Split into individual error objects - IMPROVED ===\n  // Handle incomplete JSON by finding all complete objects\n  const objectMatches = [];\n  let depth = 0;\n  let currentObj = \"\";\n  let inString = false;\n  let escapeNext = false;\n\n  for (let i = 0; i < errorsBlock.length; i++) {\n    const char = errorsBlock[i];\n    \n    if (escapeNext) {\n      currentObj += char;\n      escapeNext = false;\n      continue;\n    }\n    \n    if (char === '\\\\') {\n      escapeNext = true;\n      currentObj += char;\n      continue;\n    }\n    \n    if (char === '\"' && !escapeNext) {\n      inString = !inString;\n      currentObj += char;\n      continue;\n    }\n    \n    if (!inString) {\n      if (char === '{') {\n        if (depth === 0) currentObj = \"\";\n        depth++;\n        currentObj += char;\n      } else if (char === '}') {\n        depth--;\n        currentObj += char;\n        if (depth === 0 && currentObj.trim()) {\n          objectMatches.push(currentObj.trim());\n        }\n      } else {\n        currentObj += char;\n      }\n    } else {\n      currentObj += char;\n    }\n  }\n\n  // === 6. Parse each error object ===\n  errors = objectMatches.map((str, index) => {\n    try {\n      // Clean common JSON issues\n      let cleaned = str\n        .replace(/,\\s*}/g, \"}\")\n        .replace(/,\\s*]/g, \"]\")\n        .replace(/:\\s*,/g, ': \"\",')\n        .replace(/:\\s*undefined/g, ': null')\n        .replace(/:\\s*'([^']*)'/g, ': \"$1\"');\n\n      return JSON.parse(cleaned);\n    } catch (e) {\n      // Fallback: extract with regex if JSON parsing fails\n      return {\n        error_id: index + 1,\n        found_text: (str.match(/\"found_text\"\\s*:\\s*\"([^\"]*)\"/i)?.[1] || \"Unknown\").trim(),\n        corrected_text: str.match(/\"corrected_text\"\\s*:\\s*\"([^\"]*)\"/i)?.[1] || null,\n        error_type: str.match(/\"error_type\"\\s*:\\s*\"([^\"]*)\"/i)?.[1] || \"Unknown\",\n        issue_description: str.match(/\"issue_description\"\\s*:\\s*\"([^\"]*)\"/i)?.[1] || \"Parsing failed\",\n        panel_zone: str.match(/\"panel_zone\"\\s*:\\s*\"([^\"]*)\"/i)?.[1] || null,\n        coordinates: null,\n        parse_warning: \"Fallback regex extraction used\"\n      };\n    }\n  });\n}\n\n// === 7. Return empty result if no errors ===\nif (!errors || errors.length === 0) {\n  return [{\n    json: {\n      message: \"No errors found in image\",\n      errors_count: 0\n    }\n  }];\n}\n\n// === 8. Normalize and return one item per error ===\nreturn errors.map((error, index) => ({\n  json: {\n    error_id: error.error_id ?? index + 1,\n    found_text: (error.found_text || \"\").trim(),\n    corrected_text: error.corrected_text || null,\n    error_type: error.error_type || \"Unknown\",\n    issue_description: error.issue_description || error.issue || \"No description\",\n    panel_zone: error.panel_zone || null,\n    coordinates: error.coordinates || null,\n    confidence: error.confidence || null\n  },\n  pairedItem: { item: 0 }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        -256
+      ],
+      "id": "18da35f7-b096-4265-b9f1-ed36602d1393",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "=full_parsed.errors_detected",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        -64
+      ],
+      "id": "569f79af-49e5-4542-8bb6-92ee7ff53723",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nlet dimensions =$input.first().json.full_parsed.image_metadata\n\nreturn dimensions;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        176
+      ],
+      "id": "ce77c6ac-758f-4891-b426-d3d6d5e7750b",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3ea833b0-20ce-4616-b6d5-4ceb02243a96",
+              "name": "dimensions",
+              "value": "=width ={{ $json.width }},height ={{ $json.height }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1056,
+        112
+      ],
+      "id": "c657602d-d08d-43c2-8d47-c2a39102080d",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=You are the final QC auditor reviewing U.S. Army packaging. OUtput perfect json.\nother model has already proposed some errors. Your job is to outperform other model by \nfinding ONLY the additional errors that Gemini missed — without repeating any of his.\n\nGemini’s findings:\n{{ JSON.stringify($json.preliminary_errors) }}\n\nRules:\n1. You MUST re-analyze the image completely.\n2. Identify ONLY new, unique errors NOT present in Gemini’s list.\n3. Types of errors to detect:\n   - spelling\n   - grammar\n   - spacing (e.g., “U.S.ARMY” vs “U.S. ARMY”)\n   - consistency\n   - missing ® or ™\n   - formatting mistakes\n   - production-layer artifacts accidentally left on artwork\nOutput ONLY this JSON (no markdown, no quotes around keys, no commentary):\n\n{\n\n  \"errors_and_corrections\": [\n    {\n      \"error_id\": number,\n      \"found_text\": \"string\",\n      \"error_type\": \"string\",\n      \"issue_description\": \"string\",\n      \"corrected_text\": \"string\"\n      \n    }\n  ],\n  \"summary\": {\n    \"total_text_items\": number,\n    \"total_errors_found\": number,\n    \"spelling_errors\": number,\n    \"grammar_errors\": number,\n    \"consistency_errors\": number,\n    \"spacing_errors\": number,\n    \"legal_errors\": number,\n    \"trademark_errors\": number,\n    \"formatting_errors\": number,\n    \"confidence_level\": \"high | medium | low\",\n    \"notes\": \"string\"\n  },\n  \"image_dimensions\": {\n    \"width\": 0,\n    \"height\": 0\n  }\n}\n\n===============================================================\nREQUIREMENTS & RULES\n===============================================================\n\n- Output MUST be valid JSON.  \n- Do NOT return markdown, code blocks, text outside JSON, or commentary.  \n- Preserve original casing/spelling exactly in `extracted_text`.  \n- Combine and unify ALL OCR + forensic detection + panel analysis in ONE output.  \n- Use empty arrays if no errors or no text found.  \n- Every key MUST exist.  \n- Begin immediately.  \n- JSON only.",
+        "inputType": "binary",
+        "binaryPropertyName": "data00",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1296,
+        -368
+      ],
+      "id": "f81eaeb7-75bc-489c-bb8f-ef9329dd1431",
+      "name": "Zonal OCR (The Technician)",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Gemini Error\n"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "qSNfKzxpwhlaYu7n",
+          "mode": "list",
+          "cachedResultName": "OCR_errors",
+          "cachedResultUrl": "/projects/bh7P55FBEXtFArto/datatables/qSNfKzxpwhlaYu7n"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "error_id",
+              "displayName": "error_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "found_text",
+              "displayName": "found_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "corrected_text",
+              "displayName": "corrected_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "error_type",
+              "displayName": "error_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "issue_description",
+              "displayName": "issue_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "panel_zone",
+              "displayName": "panel_zone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        -32
+      ],
+      "id": "9004644f-a700-4633-86e2-2cd864cf7fa9",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "qSNfKzxpwhlaYu7n",
+          "mode": "list",
+          "cachedResultName": "OCR_errors",
+          "cachedResultUrl": "/projects/bh7P55FBEXtFArto/datatables/qSNfKzxpwhlaYu7n"
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1936,
+        240
+      ],
+      "id": "6caeaeb8-bbf1-4d75-9586-97b1c1268b8d",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "path": "fa76b4c1-c3ca-4601-942a-48f1a66e7c90",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2176,
+        240
+      ],
+      "id": "3b113fd5-d5a8-4c12-8eee-b90fb0ac1b20",
+      "name": "Webhook",
+      "webhookId": "<REDACTED_WEBHOOK_ID>"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1712,
+        240
+      ],
+      "id": "4151896d-b8c8-4644-a0cf-a1113392f30d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -256,
+        -32
+      ],
+      "id": "a3b6a160-b988-45a9-8747-5bdb364a0c66",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Zonal OCR (The Technician)1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zonal OCR (The Technician)1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Zonal OCR (The Technician)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Zonal OCR (The Technician)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": null
+}
